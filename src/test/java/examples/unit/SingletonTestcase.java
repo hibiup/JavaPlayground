@@ -38,12 +38,6 @@ public class SingletonTestcase extends TestCase {
     @Parameterized.Parameter(1)
     public int expectInstances;
 
-    /** Test lazy eval */
-    @Test
-    public void testLazySingleton() throws InterruptedException {
-        testSingleton(SingletonClass.getInstance(), executor);
-    }
-
     /** Test eager eval */
     @Test
     public void testSingleton() throws InterruptedException{
