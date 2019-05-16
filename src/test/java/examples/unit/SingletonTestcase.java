@@ -10,8 +10,11 @@ import org.junit.runners.Parameterized;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @RunWith(Parameterized.class)
 public class SingletonTestcase extends TestCase {
@@ -38,25 +41,42 @@ public class SingletonTestcase extends TestCase {
     @Parameterized.Parameter(1)
     public int expectInstances;
 
+    /** Test laziness eval */
+    @Test
+    public void testLazySingleton() throws InterruptedException {
+        testSingleton(SingletonClass::getInstance);
+    }
+
     /** Test eager eval */
     @Test
-    public void testSingleton() throws InterruptedException{
-        final Set<SingletonClass> result = ConcurrentHashMap.newKeySet();
+    public void testEagerSingleton() throws InterruptedException {
+        testSingleton(SingletonClass::getSingleton);
+    }
 
-        for(int i=0; i<threadNumber; i++)
+    private void testSingleton(Supplier<SingletonClass> fn) throws InterruptedException{
+        //final Set<SingletonClass> results = ConcurrentHashMap.newKeySet();
+        final SingletonClass[] results = new SingletonClass[threadNumber];
+
+        for(int i=0; i<threadNumber; i++) {
+            final int finalI = i;
             executor.execute(() -> {
                 try {
                     long threadId = Thread.currentThread().getId();
                     logger.info("[Thread-" + threadId + "] is running");
-                    result.add(SingletonClass.getSingleton());
+                    results[finalI] = (fn.get());
                     logger.info("[Thread-" + threadId + "] is finished");
-                }
-                catch (Throwable t) {
+                } catch (Throwable t) {
                     logger.error(t, t.getCause());
                 }
             });
+        }
         executor.shutdown();
         executor.awaitTermination(10, TimeUnit.SECONDS);
-        assertEquals("Instance number supposed to be only one, but you got " + result.size(), expectInstances, result.size());
+
+        long refs = Arrays.stream(results).filter(Objects::nonNull).count();
+        assertEquals(threadNumber + " reference supposed to be received, but you got " + refs + " only", threadNumber, refs);
+
+        long count = Arrays.stream(results).distinct().count();
+        assertEquals("Instance number supposed to be only one, but you got " + count, expectInstances, count);
     }
 }
